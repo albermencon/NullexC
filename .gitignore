@@ -1,0 +1,26 @@
+# Compilados
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.dll
+*.zip
+*.d
+*.rar
+
+# Build directories
+/build/
+/out/
+bin/
+dist/
+CMakeFiles/
+CMakeCache.txt
+CMakesettings.json
+
+# IDE / Editor files
+.vscode/
+.vs/
+.idea/
+*.swp

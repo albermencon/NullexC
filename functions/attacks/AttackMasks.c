@@ -1,4 +1,7 @@
 #include "AttackMasks.h"
+#ifdef USE_BMI2
+#include <immintrin.h>
+#endif
 #include "stdlib.h"
 #include "string.h"
 #include <stdint.h>
@@ -235,7 +238,14 @@ void initSliderAttacks(int square, int isRook) {
     for (int i=0; i < size; i++) {
         uint64_t occupied = createOccupancyFromIndex(i, mask);
         uint64_t attacks = isRook ? createRookAttacks(square, occupied) : createBishopAttacks(square, occupied);
+
+#ifdef USE_BMI2
+        // PEXT index: directly extract bits at mask positions
+        int index = (int)_pext_u64(occupied, mask);
+#else
+        // Magic index
         int index = (int)((occupied * magic) >> (64 - bits));
+#endif
         attackTable[index] = attacks;
     }
 

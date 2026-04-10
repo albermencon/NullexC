@@ -80,7 +80,7 @@ void makeMove(Position *pos, Move move, StateInfo *state)
     }
     else if (isPromotion) {
         // Handle promotion
-        PieceType promoType = move_promo_type(move);
+        PieceType promoType = get_promotion_piece_type(move);
         int promoIndex = piece_type_to_bitboard_index(movingColor, promoType);
         int pawnIndex = movingPiece;
         

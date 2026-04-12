@@ -12,4 +12,7 @@
 void makeMove(Position* pos, Move move, StateInfo* state);
 void unMakeMove(Position* pos, const StateInfo* state);
 
+void makeNullMove(Position* pos, StateInfo* state);
+void unMakeNullMove(Position* pos, const StateInfo* state);
+
 #endif // MOVE_APPLICATION_H

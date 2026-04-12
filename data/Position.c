@@ -2,6 +2,7 @@
 #include "data/Position.h"
 #include "functions/rules/Check.h"
 #include "core/bitboard.h"
+#include "functions/evaluation/Evaluate.h"
 #include <string.h>  // for memcpy
 
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];
@@ -53,8 +54,6 @@ void Position_init(Position* pos,
 
     pos->kingSquare[WHITE] = (Square)lsb(pos->bitboards[W_K]);
     pos->kingSquare[BLACK] = (Square)lsb(pos->bitboards[B_K]);
-
-    //init_line_between_bb();
 }
 
 bool aligned(Square s1, Square s2, PieceType pt) {
@@ -109,7 +108,7 @@ void init_line_between_bb() {
                     | (1ULL << s1) | (1ULL << s2);
                 BetweenBB[s1][s2] = between_squares(s1, s2); // safe: same diagonal
             }
-            // else: not aligned → LineBB=0, BetweenBB=0
+            // else: not aligned LineBB=0, BetweenBB=0
         }
     }
 }
@@ -129,4 +128,20 @@ void position_setup_root(Position* pos, StateInfo* root_state) {
     root_state->prevZobrist = pos->zobristHash;
 
     pos->st = root_state;
+
+    // Initialize the PST and value
+    for (int i = 0; i < NUM_BITBOARDS; i++)
+    {
+        Bitboard bb = pos->bitboards[i];
+        while (bb)
+        {
+            Square sq = pop_lsb(&bb);
+            root_state->eval += piece_value(i, sq);
+            if (i != W_K && i != B_K)
+            {
+                if (i <= 5) root_state->non_pawn_white++;
+                else root_state->non_pawn_black++;
+            }
+        }
+    }
 }

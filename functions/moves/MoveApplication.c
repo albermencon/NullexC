@@ -1,5 +1,6 @@
 #include "functions/moves/MoveApplication.h"
 #include "functions/rules/Check.h"
+#include "functions/evaluation/Evaluate.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
@@ -32,6 +33,23 @@ void makeMove(Position *pos, Move move, StateInfo *state)
     state->prevZobrist = pos->zobristHash;
     state->prev = pos->st;   // link into chain
 
+    // Incremental evaluation
+    state->eval = pos->st->eval;
+    state->non_pawn_white = pos->st->non_pawn_white;
+    state->non_pawn_black = pos->st->non_pawn_black;
+    
+    // Remove moving piece
+    state->eval -= piece_value(movingPiece, from);
+    if (capturedPiece != -1)
+    {
+        state->eval -= piece_value(capturedPiece, to);
+        int lost_weight = non_pawn_weight(capturedPiece);
+        if (lost_weight > 0) {
+            if (movingColor == WHITE) state->non_pawn_black -= lost_weight;
+            else                      state->non_pawn_white -= lost_weight;
+        }
+    }
+
     // Half-move clock
     pos->halfmoveClock = (is_pawn(movingPiece) || capturedPiece != -1)
         ? 0 : pos->halfmoveClock + 1;
@@ -62,6 +80,11 @@ void makeMove(Position *pos, Move move, StateInfo *state)
         add_piece_bb(pos, movingPiece, to);
         remove_piece_bb(pos, rookIndex, castlingPos.rookFrom);
         add_piece_bb(pos, rookIndex, castlingPos.rookTo);
+
+        // Update delta of the rook
+        state->eval += piece_value(movingPiece, to);
+        state->eval -= piece_value(rookIndex, castlingPos.rookFrom);
+        state->eval += piece_value(rookIndex, castlingPos.rookTo);
     }
     else if (isEnPassant) {
         // Handle en passant
@@ -77,6 +100,10 @@ void makeMove(Position *pos, Move move, StateInfo *state)
         remove_piece_bb(pos, capturedPawnIndex, epCapturedSquare);
         
         state->capturedPiece = capturedPawnIndex; // Update for unmake
+
+        // Substract captured pawn value and add moved pawn value
+        state->eval += piece_value(movingPiece, to);
+        state->eval -= piece_value(capturedPawnIndex, epCapturedSquare);
     }
     else if (isPromotion) {
         // Handle promotion
@@ -93,6 +120,14 @@ void makeMove(Position *pos, Move move, StateInfo *state)
             remove_piece_bb(pos, capturedPiece, to);
         }
         add_piece_bb(pos, promoIndex, to);
+
+        // Update delta of the promoted piece
+        state->eval += piece_value(promoIndex, to);
+
+        // Update non-pawn weights
+        int promo_weight = non_pawn_weight(promoIndex);
+        if (movingColor == WHITE) state->non_pawn_white += promo_weight;
+        else                      state->non_pawn_black += promo_weight;
     }
     else {
         // Normal move
@@ -105,6 +140,9 @@ void makeMove(Position *pos, Move move, StateInfo *state)
             remove_piece_bb(pos, capturedPiece, to);
         }
         add_piece_bb(pos, movingPiece, to);
+
+        // Update PST of the moved piece
+        state->eval += piece_value(movingPiece, to);
     }
 
     // Update position state
@@ -199,6 +237,12 @@ void makeNullMove(Position* pos, StateInfo* state)
     state->prevHalfMove = pos->halfmoveClock;
     state->prevZobrist = pos->zobristHash;
     state->prev = pos->st;
+    state->isNullMove = true;
+
+    // Save evaluation
+    state->eval = pos->st->eval;
+    state->non_pawn_white = pos->st->non_pawn_white;
+    state->non_pawn_black = pos->st->non_pawn_black;
 
     pos->zobristHash = update_hash_null_move(pos->zobristHash, pos);
     pos->enPassantSquare = -1;
@@ -247,25 +291,25 @@ static uint8_t update_castling_rights(const Position* position, Move move, int m
     if (is_rook(movingPiece)) {
         // White rooks
         if (movingColor == WHITE) {
-            if (from == 0) rights &= ~0x02;   // a1 rook → remove white queenside
-            else if (from == 7) rights &= ~0x01; // h1 rook → remove white kingside
+            if (from == 0) rights &= ~0x02;   // a1 rook -> remove white queenside
+            else if (from == 7) rights &= ~0x01; // h1 rook -> remove white kingside
         } 
         // Black rooks
         else {
-            if (from == 56) rights &= ~0x08; // a8 rook → remove black queenside
-            else if (from == 63) rights &= ~0x04; // h8 rook → remove black kingside
+            if (from == 56) rights &= ~0x08; // a8 rook -> remove black queenside
+            else if (from == 63) rights &= ~0x04; // h8 rook -> remove black kingside
         }
     }
 
-    // Rook captured → remove corresponding side
+    // Rook captured -> remove corresponding side
     if (capturedPiece != -1 && is_rook(capturedPiece)) {
         Color capturedColor = piece_index_color(capturedPiece);
         if (capturedColor == WHITE) {
-            if (to == 0) rights &= ~0x02;   // a1 rook captured → remove white queenside
-            else if (to == 7) rights &= ~0x01; // h1 rook captured → remove white kingside
+            if (to == 0) rights &= ~0x02;   // a1 rook captured -> remove white queenside
+            else if (to == 7) rights &= ~0x01; // h1 rook captured -> remove white kingside
         } else {
-            if (to == 56) rights &= ~0x08; // a8 rook captured → remove black queenside
-            else if (to == 63) rights &= ~0x04; // h8 rook captured → remove black kingside
+            if (to == 56) rights &= ~0x08; // a8 rook captured -> remove black queenside
+            else if (to == 63) rights &= ~0x04; // h8 rook captured -> remove black kingside
         }
     }
 

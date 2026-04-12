@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
 #include "core/types.h"
 #include "functions/attacks/AttackMasks.h"
 
@@ -22,7 +21,11 @@ struct StateInfo {
     short   prevEPSq;
     short   prevHalfMove;
     uint64_t prevZobrist;
-
+    bool    isNullMove;
+    int non_pawn_white;
+    int non_pawn_black;
+    int eval;
+    
     Bitboard checkersBB; // enemy pieces currently giving check
     Bitboard pinners[COLOR_NB]; // pinned pieces per side
     Bitboard checkSquares[PIECE_NB];

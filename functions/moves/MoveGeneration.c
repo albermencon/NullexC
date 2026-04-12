@@ -6,8 +6,6 @@
 
 // Thread-local storage
 static _Thread_local Move      move_buffer[MAX_MOVES];
-static _Thread_local StateInfo state_stack[MAX_PLY];
-static _Thread_local int       current_ply = 0;
 
 // gen_piece_moves — jumping + sliding pieces to target mask
 static inline Move* gen_piece_moves(const Position* pos, Color us, PieceType pt,
@@ -194,11 +192,13 @@ static inline Move* generate_evasions(const Position* pos, Color us, Move* moveL
 #undef EMIT_PROMOS
         }
 
-        // EP: only legal if captured pawn IS the checker
+        // EP: only legal if captured pawn IS the checker OR the destination square blocks the check
         if (pos->enPassantSquare != -1) {
             Square ep = pos->enPassantSquare;
             Square epPwn = (us == WHITE) ? ep - 8 : ep + 8;
-            if (checker & (1ULL << epPwn)) {
+
+            // Check if captured pawn is checker, OR destination square intercepts the check ray
+            if ((checker & (1ULL << epPwn)) || (blockMask & (1ULL << ep))) {
                 Bitboard epB = 1ULL << ep;
                 Bitboard cL = (us == WHITE) ? ((pawns & ~fileA) << 7) & epB : ((pawns & ~fileH) >> 7) & epB;
                 Bitboard cR = (us == WHITE) ? ((pawns & ~fileH) << 9) & epB : ((pawns & ~fileA) >> 9) & epB;
@@ -278,7 +278,6 @@ static inline Move* filter_legal(const Position* pos, Move* begin, Move* end,
     }
 
     Position* p = (Position*)pos;
-    StateInfo* state = &state_stack[current_ply];
     Move* cur = begin;
 
     while (cur != end) {
@@ -295,11 +294,10 @@ static inline Move* filter_legal(const Position* pos, Move* begin, Move* end,
         else if (flag == EN_PASSANT) {
             // EP can expose discovered check along a rank.
             // Only case requiring make/unmake.
-            current_ply++;
-            makeMove(p, *cur, state);
+            StateInfo ep_state;
+            makeMove(p, *cur, &ep_state);
             bool legal = !isSquareAttacked(p, p->kingSquare[us], them);
-            unMakeMove(p, state);
-            current_ply--;
+            unMakeMove(p, &ep_state);
             if (!legal) { *cur = *(--end); continue; }
 
         }

@@ -31,6 +31,7 @@ include_directories(.)
 file(GLOB_RECURSE ENGINE_SOURCES
     data/*.c
     functions/*.c
+    uci/*.c
 )
 
 set(MAIN_SOURCE main.c)

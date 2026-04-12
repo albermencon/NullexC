@@ -6,6 +6,7 @@
 
 #include "functions/moves/MoveGeneration.h"
 #include "functions/moves/MoveApplication.h"
+#include "functions/search/Time.h"
 
 // forward declarations
 static void move_to_uci(Move move, char *buf);
@@ -52,6 +53,8 @@ static void move_to_uci(Move move, char *buf) {
 
 uint64_t perft(Position* pos, int depth)
 {
+    if (depth <= 0) return 1;
+        
     Move moves[MAX_MOVES];
     int moveCount = generate_legal_moves(pos, moves);
 
@@ -89,8 +92,8 @@ uint64_t perft_divide(const Position* pos, int depth) {
     int moveCount = generate_legal_moves((Position*)pos, moves);
 
     uint64_t total = 0;
-    printf("Perft divide depth %d -- %d moves\n", depth, moveCount);
-
+    printf("Perft divide depth %d\n", depth);
+    uint64_t start_time = get_time_ms();
     for (int i = 0; i < moveCount; ++i) {
         // Make a local copy of the root position, apply the root move on the copy,
         // then call perft on depth-1
@@ -112,7 +115,9 @@ uint64_t perft_divide(const Position* pos, int depth) {
 
         total += nodes;
     }
+    uint64_t end_time = get_time_ms();
+    double time_taken = (double)(end_time - start_time);
 
-    printf("Total nodes: %llu\n", (unsigned long long)total);
+    printf("Total nodes: %llu\nTime: %0.2f ms\n", (unsigned long long)total, time_taken);
     return total;
 }

@@ -1,38 +1,42 @@
 #include <stdlib.h>
+#include <string.h>
 #include "TranspositionTable.h"
 
-#define CLUSTER_REPLACEMENT_AGE_MULT 8
+#define CLUSTER_REPLACEMENT_AGE_MULT 4
 
 void tt_init(TranspositionTable* tt, int sizeMB) {
-    int bytesPerCluster = CLUSTER_SIZE * sizeof(uint64_t);
-    int totalClusters   = (sizeMB * 1024 * 1024) / bytesPerCluster;
+    // Each cluster is 4 entries
+    size_t bytesPerCluster = sizeof(TTCluster);
+    size_t totalBytes = (size_t)sizeMB * 1024 * 1024;
+    uint64_t clustersCount = totalBytes / bytesPerCluster;
 
-    // round down to power of two
-    int clustersPow2 = 1;
-    while (clustersPow2 * 2 <= totalClusters) clustersPow2 *= 2;
+    // Round down to power of two
+    uint64_t clustersPow2 = 1;
+    while (clustersPow2 * 2 <= clustersCount) clustersPow2 *= 2;
 
     tt->numCluster  = clustersPow2;
     tt->clusterMask = clustersPow2 - 1;
-
+    
+    // Calculate shift for the high-bit index mapping
     int clusterBits = 0;
-    while ((1 << clusterBits) < clustersPow2) clusterBits++;
+    while (((uint64_t)1 << clusterBits) < clustersPow2) clusterBits++;
     tt->shiftHigh = 64 - clusterBits;
 
-    tt->table = (TTCluster*) calloc(clustersPow2, sizeof(TTCluster));
-
+    tt->table = (TTCluster*)calloc(tt->numCluster, sizeof(TTCluster));
     tt->generation = 0;
 }
 
 void tt_newSearch(TranspositionTable* tt) {
-    tt->generation = (tt->generation + 1) & ((1 << GENERATION_BITS) - 1);
+    tt->generation = (tt->generation + 1) & 0xFF;
 }
 
 int tt_clusterIndex(const TranspositionTable* tt, uint64_t hash) {
+    // Use high bits for indexing to leave low bits for the key check
     return (int)((hash >> tt->shiftHigh) & tt->clusterMask);
 }
 
 void tt_free(TranspositionTable* tt) {
-    free(tt->table);
+    if (tt->table) free(tt->table);
     tt->table = NULL;
 }
 
@@ -40,43 +44,37 @@ void tt_free(TranspositionTable* tt) {
 TTEntry* tt_probe(TranspositionTable* tt, uint64_t hash) {
     int clusterIdx = tt_clusterIndex(tt, hash);
     TTCluster* cluster = &tt->table[clusterIdx];
-    uint16_t key16 = (uint16_t)(hash & KEY_MASK);
 
     for (int i = 0; i < CLUSTER_SIZE; i++) {
-        TTEntry* e = ttcluster_get(cluster, i);
-        if (ttentry_key16(e) == key16) {
-            return e;
+        if (cluster->entries[i].key == hash) {
+            return &cluster->entries[i];
         }
     }
     return NULL;
 }
 
-// Store an entry in a cluster, replacing the "worst" entry if necessary
 void tt_store(TranspositionTable* tt, uint64_t hash,
               int depth, int nodeType, int16_t eval, int moveEncoded) {
 
-    int clusterIdx = tt_clusterIndex(tt, hash);
-    TTCluster* cluster = &tt->table[clusterIdx];
-    uint16_t key16 = (uint16_t)(hash & KEY_MASK);
-    int generation = tt->generation;
+    TTCluster* cluster = &tt->table[tt_clusterIndex(tt, hash)];
 
     int replaceIdx = 0;
     int worstScore = 0x7FFFFFFF;
 
     for (int i = 0; i < CLUSTER_SIZE; i++) {
-        TTEntry* e = ttcluster_get(cluster, i);
+        TTEntry* e = &cluster->entries[i];
 
-        // If the entry matches, update it only if depth is greater or equal
-        if (ttentry_key16(e) == key16) {
+        // If exact hash match, only overwrite if new search is deeper
+        if (e->key == hash) {
             if (depth >= ttentry_depth(e)) {
-                ttcluster_set(cluster, i,
-                              ttentry_make(key16, depth, generation, nodeType, eval, moveEncoded));
+                *e = ttentry_make(hash, depth, tt->generation, nodeType, eval, moveEncoded);
             }
             return;
         }
 
-        // Replacement policy: depth - 8 * age
-        int age   = (generation - ttentry_generation(e)) & ((1 << GENERATION_BITS) - 1);
+        // Replacement logic: favor keeping deeper and younger entries
+        // Age is calculated with circular wrapping
+        int age = (tt->generation - ttentry_gen(e)) & 0xFF;
         int score = ttentry_depth(e) - (CLUSTER_REPLACEMENT_AGE_MULT * age);
 
         if (score < worstScore) {
@@ -85,7 +83,5 @@ void tt_store(TranspositionTable* tt, uint64_t hash,
         }
     }
 
-    // Replace the "worst" entry
-    ttcluster_set(cluster, replaceIdx,
-                  ttentry_make(key16, depth, generation, nodeType, eval, moveEncoded));
+    cluster->entries[replaceIdx] = ttentry_make(hash, depth, tt->generation, nodeType, eval, moveEncoded);
 }

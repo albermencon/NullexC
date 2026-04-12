@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(ChessEngine C)
+project(NullexC C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -38,7 +38,7 @@ set(MAIN_SOURCE main.c)
 
 # Main executable
 
-add_executable(main
+add_executable(NullexC
     ${MAIN_SOURCE}
     ${ENGINE_SOURCES}
 )

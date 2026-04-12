@@ -1,10 +1,9 @@
 #include "functions/moves/MoveApplication.h"
 #include "functions/rules/Check.h"
 #include "functions/evaluation/Evaluate.h"
+#include "functions/hash/ZobristHash.h"
 #include <stdint.h>
-#include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 inline static uint8_t update_castling_rights(const Position* position, Move move, int movingPiece, int capturedPiece);
 inline static short update_en_passant_square(Move move, int movingPiece);

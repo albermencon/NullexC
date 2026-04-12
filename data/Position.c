@@ -3,6 +3,7 @@
 #include "functions/rules/Check.h"
 #include "core/bitboard.h"
 #include "functions/evaluation/Evaluate.h"
+#include "functions/attacks/AttackMasks.h"
 #include <string.h>  // for memcpy
 
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];

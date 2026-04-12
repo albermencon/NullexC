@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "core/types.h"
-#include "functions/attacks/AttackMasks.h"
 
 #define NUM_BITBOARDS 12
 

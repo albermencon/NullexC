@@ -6,6 +6,7 @@
 
 #include "core/types.h"
 #include "data/Position.h"
+#include "functions/attacks/AttackMasks.h"
 
 /**
  * Checks whether the given square is attacked by the given color.

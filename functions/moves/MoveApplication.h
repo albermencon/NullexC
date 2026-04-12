@@ -7,8 +7,6 @@
 #include "core/types.h"
 #include "data/Position.h"
 
-#include "functions/hash/ZobristHash.h"
-
 void makeMove(Position* pos, Move move, StateInfo* state);
 void unMakeMove(Position* pos, const StateInfo* state);
 

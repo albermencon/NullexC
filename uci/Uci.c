@@ -4,7 +4,6 @@
 #include <stdlib.h>
 
 #include "UciParser.h"
-#include "UciUtils.h"
 #include "data/TranspositionTable.h"
 
 #define ENGINE_NAME "NullexC"
